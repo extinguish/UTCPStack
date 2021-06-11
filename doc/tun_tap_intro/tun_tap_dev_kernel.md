@@ -108,57 +108,59 @@ int tun_alloc(char *dev)
      Proto [2 bytes]
      Raw protocol(IP, IPv6, etc) frame.
 
-  3.3 Multiqueue tuntap interface:
+#### 3.3 Multiqueue tuntap interface:
 
-  From version 3.8, Linux supports multiqueue tuntap which can uses multiple
-  file descriptors (queues) to parallelize packets sending or receiving. The
-  device allocation is the same as before, and if user wants to create multiple
-  queues, TUNSETIFF with the same device name must be called many times with
-  IFF_MULTI_QUEUE flag.
+From version 3.8, Linux supports multiqueue tuntap which can uses multiple
+file descriptors (queues) to parallelize packets sending or receiving. The
+device allocation is the same as before, and if user wants to create multiple
+queues, `TUNSETIFF` with the same device name must be called many times with
+`IFF_MULTI_QUEUE` flag.
 
-  char *dev should be the name of the device, queues is the number of queues to
-  be created, fds is used to store and return the file descriptors (queues)
-  created to the caller. Each file descriptor were served as the interface of a
-  queue which could be accessed by userspace.
+`char *dev` should be the name of the device, queues is the number of queues to
+be created, `fds` is used to store and return the file descriptors (queues)
+created to the caller. Each file descriptor were served as the interface of a
+queue which could be accessed by userspace.
 
-  #include <linux/if.h>
-  #include <linux/if_tun.h>
+```cpp
+#include <linux/if.h>
+#include <linux/if_tun.h>
 
-  int tun_alloc_mq(char *dev, int queues, int *fds)
-  {
-      struct ifreq ifr;
-      int fd, err, i;
+int tun_alloc_mq(char *dev, int queues, int *fds)
+{
+    struct ifreq ifr;
+    int fd, err, i;
 
-      if (!dev)
-          return -1;
+    if (!dev)
+        return -1;
 
-      memset(&ifr, 0, sizeof(ifr));
-      /* Flags: IFF_TUN   - TUN device (no Ethernet headers)
-       *        IFF_TAP   - TAP device
-       *
-       *        IFF_NO_PI - Do not provide packet information
-       *        IFF_MULTI_QUEUE - Create a queue of multiqueue device
-       */
-      ifr.ifr_flags = IFF_TAP | IFF_NO_PI | IFF_MULTI_QUEUE;
-      strcpy(ifr.ifr_name, dev);
+    memset(&ifr, 0, sizeof(ifr));
+    /* Flags: IFF_TUN   - TUN device (no Ethernet headers)
+     *        IFF_TAP   - TAP device
+     *
+     *        IFF_NO_PI - Do not provide packet information
+     *        IFF_MULTI_QUEUE - Create a queue of multiqueue device
+     */
+    ifr.ifr_flags = IFF_TAP | IFF_NO_PI | IFF_MULTI_QUEUE;
+    strcpy(ifr.ifr_name, dev);
 
-      for (i = 0; i < queues; i++) {
-          if ((fd = open("/dev/net/tun", O_RDWR)) < 0)
-             goto err;
-          err = ioctl(fd, TUNSETIFF, (void *)&ifr);
-          if (err) {
-             close(fd);
-             goto err;
-          }
-          fds[i] = fd;
-      }
+    for (i = 0; i < queues; i++) {
+        if ((fd = open("/dev/net/tun", O_RDWR)) < 0)
+            goto err;
+        err = ioctl(fd, TUNSETIFF, (void *)&ifr);
+        if (err) {
+            close(fd);
+            goto err;
+        }
+        fds[i] = fd;
+    }
 
-      return 0;
-  err:
-      for (--i; i >= 0; i--)
-          close(fds[i]);
-      return err;
-  }
+    return 0;
+err:
+    for (--i; i >= 0; i--)
+        close(fds[i]);
+    return err;
+}
+```
 
   A new ioctl(TUNSETQUEUE) were introduced to enable or disable a queue. When
   calling it with IFF_DETACH_QUEUE flag, the queue were disabled. And when
@@ -215,16 +217,20 @@ and decrypts the data received and writes the packet to the TAP device,
 the kernel handles the packet like it came from real physical device.
 
 4. What is the difference between TUN driver and TAP driver?
-TUN works with IP frames. TAP works with Ethernet frames.
+
+`TUN` works with `IP frames`. `TAP` works with `Ethernet frames`.
 
 This means that you have to read/write IP packets when you are using tun and
 ethernet frames when using tap.
 
-5. What is the difference between BPF and TUN/TAP driver?
-BPF is an advanced packet filter. It can be attached to existing
-network interface. It does not provide a virtual network interface.
-A TUN/TAP driver does provide a virtual network interface and it is possible
-to attach BPF to this interface.
+5. What is the difference between `BPF` and `TUN/TAP` driver?
+
+`BPF` is an advanced packet filter. It can be attached to existing          
+network interface. It does not provide a virtual network interface.         
+A `TUN/TAP` driver does provide a virtual network interface and it is possible              
+to attach BPF to this interface.            
 
 6. Does TAP driver support kernel Ethernet bridging?
-Yes. Linux and FreeBSD drivers support Ethernet bridging. 
+
+Yes. Linux and FreeBSD drivers support **Ethernet bridging**. 
+
